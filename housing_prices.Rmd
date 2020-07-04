@@ -1,0 +1,190 @@
+---
+title: "Housing Prices Prediction"
+author: "Eero Lehtonen"
+date: "7/4/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Summary
+
+## Background
+
+## Loading Data
+
+```{r}
+library(dplyr)
+library(caret)
+```
+
+```{r}
+train <- read.csv("data/train.csv")
+test <- read.csv("data/test.csv")
+
+ids <- test$Id
+train_y <- data.frame(SalePrice = train$SalePrice)
+train <- select(train, -SalePrice)
+```
+
+## Understanding dataset
+
+```{r}
+str(train)
+```
+
+```{r}
+colSums(is.na(train)) / dim(train)[1]
+```
+
+```{r}
+colSums(train == "") / dim(train)[1]
+```
+
+## Cleaning dataset
+
+Removing unusable columns
+
+```{r}
+train <- select(train, -Id, -PoolQC, -Fence, -MiscFeature, -Alley)
+
+test <- select(test, -Id, -PoolQC, -Fence, -MiscFeature, -Alley)
+```
+
+Factor Conversion
+
+
+```{r}
+
+train$MSSubClass <- as.factor(train$MSSubClass)
+train$OverallQual <- as.factor(train$OverallQual)
+train$OverallCond <- as.factor(train$OverallCond)
+train$BsmtFullBath <- as.factor(train$BsmtFullBath)
+train$BsmtHalfBath <- as.factor(train$BsmtHalfBath)
+train$FullBath <- as.factor(train$FullBath)
+train$HalfBath <- as.factor(train$HalfBath)
+train$BedroomAbvGr <- as.factor(train$BedroomAbvGr)
+train$KitchenAbvGr <- as.factor(train$KitchenAbvGr)
+train$TotRmsAbvGrd <- as.factor(train$TotRmsAbvGrd)
+train$GarageCars <- as.factor(train$GarageCars)
+train$MoSold <- as.factor(train$MoSold)
+
+test$MSSubClass <- as.factor(test$MSSubClass)
+test$OverallQual <- as.factor(test$OverallQual)
+test$OverallCond <- as.factor(test$OverallCond)
+test$BsmtFullBath <- as.factor(test$BsmtFullBath)
+test$BsmtHalfBath <- as.factor(test$BsmtHalfBath)
+test$FullBath <- as.factor(test$FullBath)
+test$HalfBath <- as.factor(test$HalfBath)
+test$BedroomAbvGr <- as.factor(test$BedroomAbvGr)
+test$KitchenAbvGr <- as.factor(test$KitchenAbvGr)
+test$TotRmsAbvGrd <- as.factor(test$TotRmsAbvGrd)
+test$GarageCars <- as.factor(test$GarageCars)
+test$MoSold <- as.factor(test$MoSold)
+
+```
+
+Data imputation
+
+Get classes for each column
+
+```{r}
+classes <- lapply(train, class)
+```
+
+In factor columns, replace the NA-values with the most frequent value 
+
+```{r}
+factor_columns <- names(classes[classes == "factor"])
+
+impute_factor_column <- function(column) {
+  column[is.na(column)] <- names(which.max(table(column)))
+  column
+}
+
+train[factor_columns] <- lapply(train[factor_columns], impute_factor_column)
+test[factor_columns] <- lapply(test[factor_columns], impute_factor_column)
+
+```
+
+In integer columns, replace the NA-values with the median value.
+
+```{r}
+integer_columns <- names(classes[classes == "integer"])
+
+impute_integer_column <- function(column) {
+  column[is.na(column)] <- median(column, na.rm = TRUE)
+  column
+}
+
+train[integer_columns] <- lapply(train[integer_columns], impute_integer_column)
+test[integer_columns] <- lapply(test[integer_columns], impute_integer_column)
+
+```
+
+Dummy variables
+
+```{r}
+
+dummies <- dummyVars(~., data = rbind(train, test))
+train_x <- data.frame(predict(dummies, newdata = train))
+test_x <- data.frame(predict(dummies, newdata = test))
+
+```
+
+## Prediction
+
+### Baseline
+
+```{r}
+baseline <- mean(train_y$SalePrice)
+pred <- rep(baseline, length(ids))
+```
+
+Write submission file
+
+```{r}
+submission_data <- data.frame(Id = ids, SalePrice = pred)
+write.csv(submission_data, file="data/submission_baseline.csv", row.names=FALSE)
+```
+### Linear model
+
+Train model
+
+```{r}
+train <- cbind(train_x, train_y)
+mdl <- lm(SalePrice ~ ., data = train)
+```
+
+Make predictions
+
+```{r}
+pred2 <- predict(mdl, test_x)
+```
+
+Write submission file
+
+```{r}
+submission_data <- data.frame(Id = ids, SalePrice = pred2)
+write.csv(submission_data, file="data/submission_linear1.csv", row.names=FALSE)
+```
+
+## Conclusion
+
+Baseline: 
+
+Score: 16425.41686
+
+Position: 38718
+
+Version 1:
+
+Score: 16425.41686
+
+Position: 7901
+
+
+```{r}
+
+```
