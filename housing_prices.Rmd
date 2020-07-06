@@ -10,7 +10,40 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 ## Summary
 
+In this project the task was to predict the sell price of a house from the house's features. 
+
+Approach:
+
+1. Loading dataset
+2. Exploring dataset structure and features
+3. Removing columns used for book keeping and with a lot of na-values
+4. Converting factor columns to be of type factors
+5. Data imputation (numeric -> median, factor -> most common)
+6. Creating dummy variables
+7. Feature Selection (Removing near zero variance predictors and highly correlated features)
+8. Creating Baseline prediction with average sell price
+9. Training and predicting with linear regression
+
+Packages Used:
+
+dplyr, caret
+
+Predictors:
+
+- House features i.e. size, number of bathrooms, garage, pool etc.
+
+Outcome
+
+- Sell price of the house
+
 ## Background
+
+Ask a home buyer to describe their dream house, and they probably won't begin with the height of the basement ceiling or the proximity to an east-west railroad. But this playground competition's dataset proves that much more influences price negotiations than the number of bedrooms or a white-picket fence.
+
+With 79 explanatory variables describing (almost) every aspect of residential homes in Ames, Iowa, this competition challenges you to predict the final price of each home.
+
+(From Kaggle challenge)
+
 
 ## Loading Data
 

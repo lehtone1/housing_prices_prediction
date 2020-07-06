@@ -371,9 +371,35 @@ summary {
 
 <div id="summary" class="section level2">
 <h2>Summary</h2>
+<p>In this project the task was to predict the sell price of a house from the house’s features.</p>
+<p>Approach:</p>
+<ol style="list-style-type: decimal">
+<li>Loading dataset</li>
+<li>Exploring dataset structure and features</li>
+<li>Removing columns used for book keeping and with a lot of na-values</li>
+<li>Converting factor columns to be of type factors</li>
+<li>Data imputation (numeric -&gt; median, factor -&gt; most common)</li>
+<li>Creating dummy variables</li>
+<li>Feature Selection (Removing near zero variance predictors and highly correlated features)</li>
+<li>Creating Baseline prediction with average sell price</li>
+<li>Training and predicting with linear regression</li>
+</ol>
+<p>Packages Used:</p>
+<p>dplyr, caret</p>
+<p>Predictors:</p>
+<ul>
+<li>House features i.e. size, number of bathrooms, garage, pool etc.</li>
+</ul>
+<p>Outcome</p>
+<ul>
+<li>Sell price of the house</li>
+</ul>
 </div>
 <div id="background" class="section level2">
 <h2>Background</h2>
+<p>Ask a home buyer to describe their dream house, and they probably won’t begin with the height of the basement ceiling or the proximity to an east-west railroad. But this playground competition’s dataset proves that much more influences price negotiations than the number of bedrooms or a white-picket fence.</p>
+<p>With 79 explanatory variables describing (almost) every aspect of residential homes in Ames, Iowa, this competition challenges you to predict the final price of each home.</p>
+<p>(From Kaggle challenge)</p>
 </div>
 <div id="loading-data" class="section level2">
 <h2>Loading Data</h2>
