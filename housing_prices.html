@@ -607,6 +607,23 @@ test[integer_columns] &lt;- lapply(test[integer_columns], impute_integer_column)
 train_x &lt;- data.frame(predict(dummies, newdata = train))
 test_x &lt;- data.frame(predict(dummies, newdata = test))</code></pre>
 </div>
+<div id="feature-selection" class="section level2">
+<h2>Feature Selection</h2>
+<p>Remove features with zero variance</p>
+<pre class="r"><code>near_zero_var_columns &lt;- nearZeroVar(train_x, freqCut = 100, uniqueCut = 0)
+near_zero_var_columns</code></pre>
+<pre><code>## [1]  16 246 278 279 308</code></pre>
+<pre class="r"><code>train_x &lt;- select(train_x, -near_zero_var_columns)
+test_x &lt;- select(test_x, -near_zero_var_columns)</code></pre>
+<p>Remove highly correlated features</p>
+<pre class="r"><code>correlationMatrix &lt;- cor(train_x)
+highlyCorrelated &lt;- findCorrelation(correlationMatrix, cutoff=.85)
+highlyCorrelated</code></pre>
+<pre><code>##  [1]  28  63  86  90  91  97 153 172 177 229 246 317  23  33  40  11 120 137 139
+## [20] 141 145 146 223 234 238 242 257 255 286 344</code></pre>
+<pre class="r"><code>train_x &lt;- select(train_x, -highlyCorrelated)
+test_x &lt;- select(test_x, -highlyCorrelated)</code></pre>
+</div>
 <div id="prediction" class="section level2">
 <h2>Prediction</h2>
 <div id="baseline" class="section level3">
@@ -639,6 +656,10 @@ write.csv(submission_data, file=&quot;data/submission_linear1.csv&quot;, row.nam
 <p>Version 1:</p>
 <p>Score: 16425.41686</p>
 <p>Position: 7901</p>
+<p>Version 2:</p>
+<p>Removing zero variance and highly correlated (0.85) features</p>
+<p>Score: 16368.80041</p>
+<p>Position: 6975</p>
 </div>
 
 

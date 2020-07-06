@@ -44,6 +44,8 @@ colSums(train == "") / dim(train)[1]
 
 ## Cleaning dataset
 
+
+
 Removing unusable columns
 
 ```{r}
@@ -133,6 +135,28 @@ test_x <- data.frame(predict(dummies, newdata = test))
 
 ```
 
+## Feature Selection
+
+Remove features with zero variance
+
+```{r}
+near_zero_var_columns <- nearZeroVar(train_x, freqCut = 100, uniqueCut = 0)
+near_zero_var_columns
+train_x <- select(train_x, -near_zero_var_columns)
+test_x <- select(test_x, -near_zero_var_columns)
+```
+
+Remove highly correlated features
+
+```{r}
+correlationMatrix <- cor(train_x)
+highlyCorrelated <- findCorrelation(correlationMatrix, cutoff=.85)
+highlyCorrelated
+
+train_x <- select(train_x, -highlyCorrelated)
+test_x <- select(test_x, -highlyCorrelated)
+```
+
 ## Prediction
 
 ### Baseline
@@ -178,6 +202,7 @@ Score: 16425.41686
 
 Position: 38718
 
+
 Version 1:
 
 Score: 16425.41686
@@ -185,6 +210,10 @@ Score: 16425.41686
 Position: 7901
 
 
-```{r}
+Version 2:
 
-```
+Removing zero variance and highly correlated (0.85) features
+
+Score: 16368.80041
+
+Position: 6975
