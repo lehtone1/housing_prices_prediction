@@ -59,6 +59,7 @@ test <- read.csv("data/test.csv")
 ids <- test$Id
 train_y <- data.frame(SalePrice = train$SalePrice)
 train <- select(train, -SalePrice)
+features <- rbind(train, test)
 ```
 
 ## Understanding dataset
@@ -75,9 +76,25 @@ colSums(is.na(train)) / dim(train)[1]
 colSums(train == "") / dim(train)[1]
 ```
 
+# Feature Engineering
+
+```{r}
+
+features <- features %>%
+  mutate(
+    TotalSF = TotalBsmtSF + X1stFlrSF + X2ndFlrSF,
+    TotalBath = BsmtFullBath + BsmtHalfBath + FullBath + HalfBath,
+    PorchSF = WoodDeckSF + OpenPorchSF + EnclosedPorch + X3SsnPorch + ScreenPorch,
+    YrBuiltOrRemod = pmax(YearBuilt, YearRemodAdd),
+    HasPool = PoolArea > 0,
+    HasFireplace = Fireplaces > 0,
+    HasGarage = !is.na(GarageType),
+    HasBasement = TotalBsmtSF > 0,
+    Has2ndFloor = X2ndFlrSF > 0 
+  )
+
+```
 ## Cleaning dataset
-
-
 
 Removing unusable columns
 
@@ -85,6 +102,8 @@ Removing unusable columns
 train <- select(train, -Id, -PoolQC, -Fence, -MiscFeature, -Alley)
 
 test <- select(test, -Id, -PoolQC, -Fence, -MiscFeature, -Alley)
+
+
 ```
 
 Factor Conversion
@@ -92,31 +111,23 @@ Factor Conversion
 
 ```{r}
 
-train$MSSubClass <- as.factor(train$MSSubClass)
-train$OverallQual <- as.factor(train$OverallQual)
-train$OverallCond <- as.factor(train$OverallCond)
-train$BsmtFullBath <- as.factor(train$BsmtFullBath)
-train$BsmtHalfBath <- as.factor(train$BsmtHalfBath)
-train$FullBath <- as.factor(train$FullBath)
-train$HalfBath <- as.factor(train$HalfBath)
-train$BedroomAbvGr <- as.factor(train$BedroomAbvGr)
-train$KitchenAbvGr <- as.factor(train$KitchenAbvGr)
-train$TotRmsAbvGrd <- as.factor(train$TotRmsAbvGrd)
-train$GarageCars <- as.factor(train$GarageCars)
-train$MoSold <- as.factor(train$MoSold)
-
-test$MSSubClass <- as.factor(test$MSSubClass)
-test$OverallQual <- as.factor(test$OverallQual)
-test$OverallCond <- as.factor(test$OverallCond)
-test$BsmtFullBath <- as.factor(test$BsmtFullBath)
-test$BsmtHalfBath <- as.factor(test$BsmtHalfBath)
-test$FullBath <- as.factor(test$FullBath)
-test$HalfBath <- as.factor(test$HalfBath)
-test$BedroomAbvGr <- as.factor(test$BedroomAbvGr)
-test$KitchenAbvGr <- as.factor(test$KitchenAbvGr)
-test$TotRmsAbvGrd <- as.factor(test$TotRmsAbvGrd)
-test$GarageCars <- as.factor(test$GarageCars)
-test$MoSold <- as.factor(test$MoSold)
+features$MSSubClass <- as.factor(features$MSSubClass)
+features$OverallQual <- as.factor(features$OverallQual)
+features$OverallCond <- as.factor(features$OverallCond)
+features$BsmtFullBath <- as.factor(features$BsmtFullBath)
+features$BsmtHalfBath <- as.factor(features$BsmtHalfBath)
+features$FullBath <- as.factor(features$FullBath)
+features$HalfBath <- as.factor(features$HalfBath)
+features$BedroomAbvGr <- as.factor(features$BedroomAbvGr)
+features$KitchenAbvGr <- as.factor(features$KitchenAbvGr)
+features$TotRmsAbvGrd <- as.factor(features$TotRmsAbvGrd)
+features$GarageCars <- as.factor(features$GarageCars)
+features$MoSold <- as.factor(features$MoSold)
+features$HasPool <- as.factor(features$HasPool)
+features$HasFireplace <- as.factor(features$HasFireplace)
+features$HasGarage <- as.factor(features$HasGarage)
+features$HasBasement <- as.factor(features$HasBasement)
+features$Has2ndFloor <- as.factor(features$Has2ndFloor)
 
 ```
 
@@ -125,7 +136,7 @@ Data imputation
 Get classes for each column
 
 ```{r}
-classes <- lapply(train, class)
+classes <- lapply(features, class)
 ```
 
 In factor columns, replace the NA-values with the most frequent value 
@@ -138,8 +149,7 @@ impute_factor_column <- function(column) {
   column
 }
 
-train[factor_columns] <- lapply(train[factor_columns], impute_factor_column)
-test[factor_columns] <- lapply(test[factor_columns], impute_factor_column)
+features[factor_columns] <- lapply(features[factor_columns], impute_factor_column)
 
 ```
 
@@ -153,8 +163,7 @@ impute_integer_column <- function(column) {
   column
 }
 
-train[integer_columns] <- lapply(train[integer_columns], impute_integer_column)
-test[integer_columns] <- lapply(test[integer_columns], impute_integer_column)
+features[integer_columns] <- lapply(features[integer_columns], impute_integer_column)
 
 ```
 
@@ -162,9 +171,8 @@ Dummy variables
 
 ```{r}
 
-dummies <- dummyVars(~., data = rbind(train, test))
-train_x <- data.frame(predict(dummies, newdata = train))
-test_x <- data.frame(predict(dummies, newdata = test))
+dummies <- dummyVars(~., data = features)
+features <- data.frame(predict(dummies, newdata = features))
 
 ```
 
@@ -173,21 +181,26 @@ test_x <- data.frame(predict(dummies, newdata = test))
 Remove features with zero variance
 
 ```{r}
-near_zero_var_columns <- nearZeroVar(train_x, freqCut = 100, uniqueCut = 0)
-near_zero_var_columns
-train_x <- select(train_x, -near_zero_var_columns)
-test_x <- select(test_x, -near_zero_var_columns)
+near_zero_var_columns <- nearZeroVar(features, freqCut = 99, uniqueCut = 1)
+features <- select(features, -near_zero_var_columns)
 ```
 
 Remove highly correlated features
 
 ```{r}
-correlationMatrix <- cor(train_x)
+correlationMatrix <- cor(features)
 highlyCorrelated <- findCorrelation(correlationMatrix, cutoff=.85)
 highlyCorrelated
 
-train_x <- select(train_x, -highlyCorrelated)
-test_x <- select(test_x, -highlyCorrelated)
+features <- select(features, -highlyCorrelated)
+```
+
+Separate train and test set
+```{r}
+train_x <- features[1:nrow(train_y),]
+test_x <- features[(nrow(train_y)+1):nrow(features),]
+
+train <- cbind(train_x, train_y)
 ```
 
 ## Prediction
@@ -205,48 +218,76 @@ Write submission file
 submission_data <- data.frame(Id = ids, SalePrice = pred)
 write.csv(submission_data, file="data/submission_baseline.csv", row.names=FALSE)
 ```
-### Linear model
+# Models to try
+
+### Model Selection
 
 Train model
 
 ```{r}
-train <- cbind(train_x, train_y)
-mdl <- lm(SalePrice ~ ., data = train)
+# library(parallel)
+# library(doParallel)
+# 
+# cluster <- makeCluster(detectCores() - 1) # convention to leave 1 core for OS
+# registerDoParallel(cluster)
+# 
+# control <- trainControl(method="repeatedcv", number=5, allowParallel = TRUE)
+# 
+# model_linear <- train(SalePrice ~ ., data=train, method="lm", trControl=control)
+# model_ridge <- train(SalePrice ~ ., data=train, method="ridge", trControl=control)
+# model_lasso <- train(SalePrice ~ ., data=train, method="lasso", trControl=control)
+# model_elastic <- train(SalePrice ~ ., data=train, method="enet", trControl=control)
+# 
+# saveRDS(model_linear, "model_linear.rds")
+# saveRDS(model_ridge, "model_ridge.rds")
+# saveRDS(model_lasso, "model_lasso.rds")
+# saveRDS(model_elastic, "model_elastic.rds")
+# 
+# stopCluster(cluster)
+# registerDoSEQ()
 ```
 
-Make predictions
+Compare models
 
 ```{r}
-pred2 <- predict(mdl, test_x)
+model_linear <-readRDS("model_linear.rds")
+model_ridge <-readRDS("model_ridge.rds")
+model_lasso <-readRDS("model_lasso.rds")
+model_elastic <-readRDS("model_elastic.rds")
+
+results <- resamples(list(linear=model_linear, ridge=model_ridge, lasso=model_lasso, enet=model_elastic))
+summary(results)
+```
+
+Make Precitions
+
+```{r}
+pred2 <- predict(model_linear, test_x)
+pred3 <- predict(model_ridge, test_x)
+pred4 <- predict(model_lasso, test_x)
+pred5 <- predict(model_elastic, test_x)
 ```
 
 Write submission file
 
 ```{r}
 submission_data <- data.frame(Id = ids, SalePrice = pred2)
-write.csv(submission_data, file="data/submission_linear1.csv", row.names=FALSE)
+write.csv(submission_data, file="data/submission_linear.csv", row.names=FALSE)
+
+submission_data <- data.frame(Id = ids, SalePrice = pred3)
+write.csv(submission_data, file="data/submission_ridge.csv", row.names=FALSE)
+
+submission_data <- data.frame(Id = ids, SalePrice = pred4)
+write.csv(submission_data, file="data/submission_lasso.csv", row.names=FALSE)
+
+submission_data <- data.frame(Id = ids, SalePrice = pred5)
+write.csv(submission_data, file="data/submission_enet.csv", row.names=FALSE)
 ```
 
 ## Conclusion
 
-Baseline: 
-
-Score: 16425.41686
-
-Position: 38718
+Final competition score with ENET: 0.14842
+Position: 3056
 
 
-Version 1:
 
-Score: 16425.41686
-
-Position: 7901
-
-
-Version 2:
-
-Removing zero variance and highly correlated (0.85) features
-
-Score: 16368.80041
-
-Position: 6975

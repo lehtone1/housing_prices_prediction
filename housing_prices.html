@@ -420,7 +420,8 @@ test &lt;- read.csv(&quot;data/test.csv&quot;)
 
 ids &lt;- test$Id
 train_y &lt;- data.frame(SalePrice = train$SalePrice)
-train &lt;- select(train, -SalePrice)</code></pre>
+train &lt;- select(train, -SalePrice)
+features &lt;- rbind(train, test)</code></pre>
 </div>
 <div id="understanding-dataset" class="section level2">
 <h2>Understanding dataset</h2>
@@ -573,6 +574,20 @@ train &lt;- select(train, -SalePrice)</code></pre>
 ##       MiscVal        MoSold        YrSold      SaleType SaleCondition 
 ##             0             0             0             0             0</code></pre>
 </div>
+<div id="feature-engineering" class="section level1">
+<h1>Feature Engineering</h1>
+<pre class="r"><code>features &lt;- features %&gt;%
+  mutate(
+    TotalSF = TotalBsmtSF + X1stFlrSF + X2ndFlrSF,
+    TotalBath = BsmtFullBath + BsmtHalfBath + FullBath + HalfBath,
+    PorchSF = WoodDeckSF + OpenPorchSF + EnclosedPorch + X3SsnPorch + ScreenPorch,
+    YrBuiltOrRemod = pmax(YearBuilt, YearRemodAdd),
+    HasPool = PoolArea &gt; 0,
+    HasFireplace = Fireplaces &gt; 0,
+    HasGarage = !is.na(GarageType),
+    HasBasement = TotalBsmtSF &gt; 0,
+    Has2ndFloor = X2ndFlrSF &gt; 0 
+  )</code></pre>
 <div id="cleaning-dataset" class="section level2">
 <h2>Cleaning dataset</h2>
 <p>Removing unusable columns</p>
@@ -580,34 +595,26 @@ train &lt;- select(train, -SalePrice)</code></pre>
 
 test &lt;- select(test, -Id, -PoolQC, -Fence, -MiscFeature, -Alley)</code></pre>
 <p>Factor Conversion</p>
-<pre class="r"><code>train$MSSubClass &lt;- as.factor(train$MSSubClass)
-train$OverallQual &lt;- as.factor(train$OverallQual)
-train$OverallCond &lt;- as.factor(train$OverallCond)
-train$BsmtFullBath &lt;- as.factor(train$BsmtFullBath)
-train$BsmtHalfBath &lt;- as.factor(train$BsmtHalfBath)
-train$FullBath &lt;- as.factor(train$FullBath)
-train$HalfBath &lt;- as.factor(train$HalfBath)
-train$BedroomAbvGr &lt;- as.factor(train$BedroomAbvGr)
-train$KitchenAbvGr &lt;- as.factor(train$KitchenAbvGr)
-train$TotRmsAbvGrd &lt;- as.factor(train$TotRmsAbvGrd)
-train$GarageCars &lt;- as.factor(train$GarageCars)
-train$MoSold &lt;- as.factor(train$MoSold)
-
-test$MSSubClass &lt;- as.factor(test$MSSubClass)
-test$OverallQual &lt;- as.factor(test$OverallQual)
-test$OverallCond &lt;- as.factor(test$OverallCond)
-test$BsmtFullBath &lt;- as.factor(test$BsmtFullBath)
-test$BsmtHalfBath &lt;- as.factor(test$BsmtHalfBath)
-test$FullBath &lt;- as.factor(test$FullBath)
-test$HalfBath &lt;- as.factor(test$HalfBath)
-test$BedroomAbvGr &lt;- as.factor(test$BedroomAbvGr)
-test$KitchenAbvGr &lt;- as.factor(test$KitchenAbvGr)
-test$TotRmsAbvGrd &lt;- as.factor(test$TotRmsAbvGrd)
-test$GarageCars &lt;- as.factor(test$GarageCars)
-test$MoSold &lt;- as.factor(test$MoSold)</code></pre>
+<pre class="r"><code>features$MSSubClass &lt;- as.factor(features$MSSubClass)
+features$OverallQual &lt;- as.factor(features$OverallQual)
+features$OverallCond &lt;- as.factor(features$OverallCond)
+features$BsmtFullBath &lt;- as.factor(features$BsmtFullBath)
+features$BsmtHalfBath &lt;- as.factor(features$BsmtHalfBath)
+features$FullBath &lt;- as.factor(features$FullBath)
+features$HalfBath &lt;- as.factor(features$HalfBath)
+features$BedroomAbvGr &lt;- as.factor(features$BedroomAbvGr)
+features$KitchenAbvGr &lt;- as.factor(features$KitchenAbvGr)
+features$TotRmsAbvGrd &lt;- as.factor(features$TotRmsAbvGrd)
+features$GarageCars &lt;- as.factor(features$GarageCars)
+features$MoSold &lt;- as.factor(features$MoSold)
+features$HasPool &lt;- as.factor(features$HasPool)
+features$HasFireplace &lt;- as.factor(features$HasFireplace)
+features$HasGarage &lt;- as.factor(features$HasGarage)
+features$HasBasement &lt;- as.factor(features$HasBasement)
+features$Has2ndFloor &lt;- as.factor(features$Has2ndFloor)</code></pre>
 <p>Data imputation</p>
 <p>Get classes for each column</p>
-<pre class="r"><code>classes &lt;- lapply(train, class)</code></pre>
+<pre class="r"><code>classes &lt;- lapply(features, class)</code></pre>
 <p>In factor columns, replace the NA-values with the most frequent value</p>
 <pre class="r"><code>factor_columns &lt;- names(classes[classes == &quot;factor&quot;])
 
@@ -616,8 +623,7 @@ impute_factor_column &lt;- function(column) {
   column
 }
 
-train[factor_columns] &lt;- lapply(train[factor_columns], impute_factor_column)
-test[factor_columns] &lt;- lapply(test[factor_columns], impute_factor_column)</code></pre>
+features[factor_columns] &lt;- lapply(features[factor_columns], impute_factor_column)</code></pre>
 <p>In integer columns, replace the NA-values with the median value.</p>
 <pre class="r"><code>integer_columns &lt;- names(classes[classes == &quot;integer&quot;])
 
@@ -626,29 +632,28 @@ impute_integer_column &lt;- function(column) {
   column
 }
 
-train[integer_columns] &lt;- lapply(train[integer_columns], impute_integer_column)
-test[integer_columns] &lt;- lapply(test[integer_columns], impute_integer_column)</code></pre>
+features[integer_columns] &lt;- lapply(features[integer_columns], impute_integer_column)</code></pre>
 <p>Dummy variables</p>
-<pre class="r"><code>dummies &lt;- dummyVars(~., data = rbind(train, test))
-train_x &lt;- data.frame(predict(dummies, newdata = train))
-test_x &lt;- data.frame(predict(dummies, newdata = test))</code></pre>
+<pre class="r"><code>dummies &lt;- dummyVars(~., data = features)
+features &lt;- data.frame(predict(dummies, newdata = features))</code></pre>
 </div>
 <div id="feature-selection" class="section level2">
 <h2>Feature Selection</h2>
 <p>Remove features with zero variance</p>
-<pre class="r"><code>near_zero_var_columns &lt;- nearZeroVar(train_x, freqCut = 100, uniqueCut = 0)
-near_zero_var_columns</code></pre>
-<pre><code>## [1]  16 246 278 279 308</code></pre>
-<pre class="r"><code>train_x &lt;- select(train_x, -near_zero_var_columns)
-test_x &lt;- select(test_x, -near_zero_var_columns)</code></pre>
+<pre class="r"><code>near_zero_var_columns &lt;- nearZeroVar(features, freqCut = 99, uniqueCut = 1)
+features &lt;- select(features, -near_zero_var_columns)</code></pre>
 <p>Remove highly correlated features</p>
-<pre class="r"><code>correlationMatrix &lt;- cor(train_x)
+<pre class="r"><code>correlationMatrix &lt;- cor(features)
 highlyCorrelated &lt;- findCorrelation(correlationMatrix, cutoff=.85)
 highlyCorrelated</code></pre>
-<pre><code>##  [1]  28  63  86  90  91  97 153 172 177 229 246 317  23  33  40  11 120 137 139
-## [20] 141 145 146 223 234 238 242 257 255 286 344</code></pre>
-<pre class="r"><code>train_x &lt;- select(train_x, -highlyCorrelated)
-test_x &lt;- select(test_x, -highlyCorrelated)</code></pre>
+<pre><code>##  [1]  22  50  61  65  69  88 117 120 161 175 224 254 257 258 259 264 265  18  31
+## [20]   9  90  92  93  94  97  98 157 166 169 171 181 202 218 248 213 260 262 163</code></pre>
+<pre class="r"><code>features &lt;- select(features, -highlyCorrelated)</code></pre>
+<p>Separate train and test set</p>
+<pre class="r"><code>train_x &lt;- features[1:nrow(train_y),]
+test_x &lt;- features[(nrow(train_y)+1):nrow(features),]
+
+train &lt;- cbind(train_x, train_y)</code></pre>
 </div>
 <div id="prediction" class="section level2">
 <h2>Prediction</h2>
@@ -660,32 +665,92 @@ pred &lt;- rep(baseline, length(ids))</code></pre>
 <pre class="r"><code>submission_data &lt;- data.frame(Id = ids, SalePrice = pred)
 write.csv(submission_data, file=&quot;data/submission_baseline.csv&quot;, row.names=FALSE)</code></pre>
 </div>
-<div id="linear-model" class="section level3">
-<h3>Linear model</h3>
+</div>
+</div>
+<div id="models-to-try" class="section level1">
+<h1>Models to try</h1>
+<div id="model-selection" class="section level3">
+<h3>Model Selection</h3>
 <p>Train model</p>
-<pre class="r"><code>train &lt;- cbind(train_x, train_y)
-mdl &lt;- lm(SalePrice ~ ., data = train)</code></pre>
-<p>Make predictions</p>
-<pre class="r"><code>pred2 &lt;- predict(mdl, test_x)</code></pre>
-<pre><code>## Warning in predict.lm(mdl, test_x): prediction from a rank-deficient fit may be
-## misleading</code></pre>
+<pre class="r"><code># library(parallel)
+# library(doParallel)
+# 
+# cluster &lt;- makeCluster(detectCores() - 1) # convention to leave 1 core for OS
+# registerDoParallel(cluster)
+# 
+# control &lt;- trainControl(method=&quot;repeatedcv&quot;, number=5, allowParallel = TRUE)
+# 
+# model_linear &lt;- train(SalePrice ~ ., data=train, method=&quot;lm&quot;, trControl=control)
+# model_ridge &lt;- train(SalePrice ~ ., data=train, method=&quot;ridge&quot;, trControl=control)
+# model_lasso &lt;- train(SalePrice ~ ., data=train, method=&quot;lasso&quot;, trControl=control)
+# model_elastic &lt;- train(SalePrice ~ ., data=train, method=&quot;enet&quot;, trControl=control)
+# 
+# saveRDS(model_linear, &quot;model_linear.rds&quot;)
+# saveRDS(model_ridge, &quot;model_ridge.rds&quot;)
+# saveRDS(model_lasso, &quot;model_lasso.rds&quot;)
+# saveRDS(model_elastic, &quot;model_elastic.rds&quot;)
+# 
+# stopCluster(cluster)
+# registerDoSEQ()</code></pre>
+<p>Compare models</p>
+<pre class="r"><code>model_linear &lt;-readRDS(&quot;model_linear.rds&quot;)
+model_ridge &lt;-readRDS(&quot;model_ridge.rds&quot;)
+model_lasso &lt;-readRDS(&quot;model_lasso.rds&quot;)
+model_elastic &lt;-readRDS(&quot;model_elastic.rds&quot;)
+
+results &lt;- resamples(list(linear=model_linear, ridge=model_ridge, lasso=model_lasso, enet=model_elastic))
+summary(results)</code></pre>
+<pre><code>## 
+## Call:
+## summary.resamples(object = results)
+## 
+## Models: linear, ridge, lasso, enet 
+## Number of resamples: 5 
+## 
+## MAE 
+##            Min.  1st Qu.   Median     Mean  3rd Qu.     Max. NA's
+## linear 17000.72 18048.40 19047.30 18955.60 19267.19 21414.40    0
+## ridge  19446.15 19579.79 19771.43 19939.59 20165.41 20735.17    0
+## lasso  18300.50 18454.57 18594.22 19350.51 19330.98 22072.26    0
+## enet   16241.98 16857.00 17065.33 17534.69 18103.68 19405.44    0
+## 
+## RMSE 
+##            Min.  1st Qu.   Median     Mean  3rd Qu.     Max. NA's
+## linear 23847.02 27888.50 30170.23 32487.31 37873.47 42657.32    0
+## ridge  27894.96 29950.20 30036.75 34231.26 37545.04 45729.37    0
+## lasso  25741.05 26561.09 31341.56 33310.40 33499.04 49409.28    0
+## enet   26235.80 27784.97 30687.13 31718.68 31892.30 41993.18    0
+## 
+## Rsquared 
+##             Min.   1st Qu.    Median      Mean   3rd Qu.      Max. NA's
+## linear 0.7551367 0.8195165 0.8561403 0.8386949 0.8562035 0.9064775    0
+## ridge  0.7408884 0.8218268 0.8575021 0.8339025 0.8608509 0.8884442    0
+## lasso  0.6757536 0.8164508 0.8688535 0.8260774 0.8827516 0.8865775    0
+## enet   0.7166574 0.8109998 0.8831251 0.8387519 0.8892607 0.8937164    0</code></pre>
+<p>Make Precitions</p>
+<pre class="r"><code>pred2 &lt;- predict(model_linear, test_x)</code></pre>
+<pre><code>## Warning in predict.lm(modelFit, newdata): prediction from a rank-deficient fit
+## may be misleading</code></pre>
+<pre class="r"><code>pred3 &lt;- predict(model_ridge, test_x)
+pred4 &lt;- predict(model_lasso, test_x)
+pred5 &lt;- predict(model_elastic, test_x)</code></pre>
 <p>Write submission file</p>
 <pre class="r"><code>submission_data &lt;- data.frame(Id = ids, SalePrice = pred2)
-write.csv(submission_data, file=&quot;data/submission_linear1.csv&quot;, row.names=FALSE)</code></pre>
-</div>
+write.csv(submission_data, file=&quot;data/submission_linear.csv&quot;, row.names=FALSE)
+
+submission_data &lt;- data.frame(Id = ids, SalePrice = pred3)
+write.csv(submission_data, file=&quot;data/submission_ridge.csv&quot;, row.names=FALSE)
+
+submission_data &lt;- data.frame(Id = ids, SalePrice = pred4)
+write.csv(submission_data, file=&quot;data/submission_lasso.csv&quot;, row.names=FALSE)
+
+submission_data &lt;- data.frame(Id = ids, SalePrice = pred5)
+write.csv(submission_data, file=&quot;data/submission_enet.csv&quot;, row.names=FALSE)</code></pre>
 </div>
 <div id="conclusion" class="section level2">
 <h2>Conclusion</h2>
-<p>Baseline:</p>
-<p>Score: 16425.41686</p>
-<p>Position: 38718</p>
-<p>Version 1:</p>
-<p>Score: 16425.41686</p>
-<p>Position: 7901</p>
-<p>Version 2:</p>
-<p>Removing zero variance and highly correlated (0.85) features</p>
-<p>Score: 16368.80041</p>
-<p>Position: 6975</p>
+<p>Final competition score with ENET: 0.14842 Position: 3056</p>
+</div>
 </div>
 
 
