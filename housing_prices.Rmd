@@ -50,6 +50,8 @@ With 79 explanatory variables describing (almost) every aspect of residential ho
 ```{r}
 library(dplyr)
 library(caret)
+library(ggplot2)
+library(reshape2)
 ```
 
 ```{r}
@@ -75,6 +77,41 @@ colSums(is.na(train)) / dim(train)[1]
 ```{r}
 colSums(train == "") / dim(train)[1]
 ```
+## Visualizing dataset
+
+```{r}
+classes <- lapply(features, class)
+
+factor_columns <- names(classes[classes == "factor"])
+integer_columns <- names(classes[classes == "integer"])
+```
+
+### Factorial data
+
+```{r}
+melt_features_factors <- melt(features[factor_columns], id.vars= NULL, factorsAsStrings=TRUE, na.rm = TRUE)
+```
+
+```{r}
+ggplot(data=melt_features_factors, aes(x = value)) + stat_count() + facet_wrap(~variable, scales = "free")
+```
+
+### Integer data
+
+```{r}
+melt_features_integers <- melt(features[integer_columns], factorsAsStrings=TRUE, na.rm = TRUE)
+```
+
+```{r}
+ggplot(data=melt_features_integers, aes(x = value)) + stat_density() + facet_wrap(~variable, scales = "free", , ncol = 6)
+```
+
+```{r}
+ggplot(data=melt_features_integers, aes(x = variable, y = value)) + stat_boxplot() + facet_wrap(~variable, scales = "free")
+```
+
+
+
 
 # Feature Engineering
 
