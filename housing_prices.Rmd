@@ -47,36 +47,76 @@ With 79 explanatory variables describing (almost) every aspect of residential ho
 
 ## Loading Data
 
-```{r}
+```{r, message=FALSE}
 library(dplyr)
 library(caret)
 library(ggplot2)
 library(reshape2)
+library(corrplot)
 ```
 
+We start the analysis by loading the data.
 ```{r}
 train <- read.csv("data/train.csv")
 test <- read.csv("data/test.csv")
-
-ids <- test$Id
-train_y <- data.frame(SalePrice = train$SalePrice)
-train <- select(train, -SalePrice)
-features <- rbind(train, test)
 ```
+
+In the training dataset we separate the predictors from the outcome. We then create a variable features from the predictors in training and testing set so that we don't have to repeat data manipulation separately for training and testing set. We also separate the id-column from the testing set, as it is needed for the submission file.
+
+
+```{r}
+train_y <- data.frame(SalePrice = train$SalePrice)
+train_x <- select(train, -SalePrice)
+features <- rbind(train_x, test)
+ids <- test$Id
+```
+
+## Correcting Feature Type
+
 
 ## Understanding dataset
 
+We start the analysis by looking at the dimensions of the training-set. 
+
 ```{r}
-str(train)
+dim(train)
+```
+
+We plot the outcome variable SalePrice. 
+
+```{r, echo=FALSE}
+ggplot(data = train_y, aes(x=SalePrice)) + geom_histogram()
+```
+
+Beforehand we estimated that important features that could have a significant effect on SalePrice could be Neighborhood, OverallQual, GrLivArea, GarageCars, BsmtSF and YearBuilt. We visualize all the relationships between these variables and SalePrice.
+
+```{r}
+ggplot(data=train, aes(x=GrLivArea, y=SalePrice)) + geom_point()
 ```
 
 ```{r}
-colSums(is.na(train)) / dim(train)[1]
+ggplot(data=train, aes(x=YearBuilt, y=SalePrice)) + geom_point()
 ```
 
 ```{r}
-colSums(train == "") / dim(train)[1]
+ggplot(data=train, aes(x=TotalBsmtSF, y=SalePrice)) + geom_point()
 ```
+
+```{r}
+ggplot(data=train, aes(x=Neighborhood, y=SalePrice)) + geom_boxplot()
+```
+
+```{r}
+ggplot(data=train, aes(x=OverallQual, y=SalePrice)) + geom_boxplot()
+```
+
+```{r}
+ggplot(data=train, aes(x=GarageCars, y=SalePrice)) + geom_boxplot()
+```
+
+```{r}
+```
+
 ## Visualizing dataset
 
 ```{r}
