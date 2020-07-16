@@ -53,6 +53,9 @@ library(caret)
 library(ggplot2)
 library(reshape2)
 library(corrplot)
+library(moments)
+library(tidyr)
+library(patchwork)
 ```
 
 We start the analysis by loading the data.
@@ -71,123 +74,11 @@ features <- rbind(train_x, test)
 ids <- test$Id
 ```
 
-## Correcting Feature Type
+## Correcting Variable Type
 
-
-## Understanding dataset
-
-We start the analysis by looking at the dimensions of the training-set. 
+From reading the data description file and comparing it to the dataset column types, we noticed that there are several columns that are of numerical type that should be factors. We convert these columns to be of correct type.
 
 ```{r}
-dim(train)
-```
-
-We plot the outcome variable SalePrice. 
-
-```{r, echo=FALSE}
-ggplot(data = train_y, aes(x=SalePrice)) + geom_histogram()
-```
-
-Beforehand we estimated that important features that could have a significant effect on SalePrice could be Neighborhood, OverallQual, GrLivArea, GarageCars, BsmtSF and YearBuilt. We visualize all the relationships between these variables and SalePrice.
-
-```{r}
-ggplot(data=train, aes(x=GrLivArea, y=SalePrice)) + geom_point()
-```
-
-```{r}
-ggplot(data=train, aes(x=YearBuilt, y=SalePrice)) + geom_point()
-```
-
-```{r}
-ggplot(data=train, aes(x=TotalBsmtSF, y=SalePrice)) + geom_point()
-```
-
-```{r}
-ggplot(data=train, aes(x=Neighborhood, y=SalePrice)) + geom_boxplot()
-```
-
-```{r}
-ggplot(data=train, aes(x=OverallQual, y=SalePrice)) + geom_boxplot()
-```
-
-```{r}
-ggplot(data=train, aes(x=GarageCars, y=SalePrice)) + geom_boxplot()
-```
-
-```{r}
-```
-
-## Visualizing dataset
-
-```{r}
-classes <- lapply(features, class)
-
-factor_columns <- names(classes[classes == "factor"])
-integer_columns <- names(classes[classes == "integer"])
-```
-
-### Factorial data
-
-```{r}
-melt_features_factors <- melt(features[factor_columns], id.vars= NULL, factorsAsStrings=TRUE, na.rm = TRUE)
-```
-
-```{r}
-ggplot(data=melt_features_factors, aes(x = value)) + stat_count() + facet_wrap(~variable, scales = "free")
-```
-
-### Integer data
-
-```{r}
-melt_features_integers <- melt(features[integer_columns], factorsAsStrings=TRUE, na.rm = TRUE)
-```
-
-```{r}
-ggplot(data=melt_features_integers, aes(x = value)) + stat_density() + facet_wrap(~variable, scales = "free", , ncol = 6)
-```
-
-```{r}
-ggplot(data=melt_features_integers, aes(x = variable, y = value)) + stat_boxplot() + facet_wrap(~variable, scales = "free")
-```
-
-
-
-
-# Feature Engineering
-
-```{r}
-
-features <- features %>%
-  mutate(
-    TotalSF = TotalBsmtSF + X1stFlrSF + X2ndFlrSF,
-    TotalBath = BsmtFullBath + BsmtHalfBath + FullBath + HalfBath,
-    PorchSF = WoodDeckSF + OpenPorchSF + EnclosedPorch + X3SsnPorch + ScreenPorch,
-    YrBuiltOrRemod = pmax(YearBuilt, YearRemodAdd),
-    HasPool = PoolArea > 0,
-    HasFireplace = Fireplaces > 0,
-    HasGarage = !is.na(GarageType),
-    HasBasement = TotalBsmtSF > 0,
-    Has2ndFloor = X2ndFlrSF > 0 
-  )
-
-```
-## Cleaning dataset
-
-Removing unusable columns
-
-```{r}
-train <- select(train, -Id, -PoolQC, -Fence, -MiscFeature, -Alley)
-
-test <- select(test, -Id, -PoolQC, -Fence, -MiscFeature, -Alley)
-
-
-```
-
-Factor Conversion
-
-
-```{r}
-
 features$MSSubClass <- as.factor(features$MSSubClass)
 features$OverallQual <- as.factor(features$OverallQual)
 features$OverallCond <- as.factor(features$OverallCond)
@@ -199,24 +90,237 @@ features$BedroomAbvGr <- as.factor(features$BedroomAbvGr)
 features$KitchenAbvGr <- as.factor(features$KitchenAbvGr)
 features$TotRmsAbvGrd <- as.factor(features$TotRmsAbvGrd)
 features$GarageCars <- as.factor(features$GarageCars)
-features$MoSold <- as.factor(features$MoSold)
-features$HasPool <- as.factor(features$HasPool)
-features$HasFireplace <- as.factor(features$HasFireplace)
-features$HasGarage <- as.factor(features$HasGarage)
-features$HasBasement <- as.factor(features$HasBasement)
-features$Has2ndFloor <- as.factor(features$Has2ndFloor)
+# features$MoSold <- as.factor(features$MoSold)
+# features$HasPool <- as.factor(features$HasPool)
+# features$HasFireplace <- as.factor(features$HasFireplace)
+# features$HasGarage <- as.factor(features$HasGarage)
+# features$HasBasement <- as.factor(features$HasBasement)
+# features$Has2ndFloor <- as.factor(features$Has2ndFloor)
+
+train$OverallQual <- as.factor(train$OverallQual)
+train$GarageCars <- as.factor(train$GarageCars)
+```
+
+
+## Understanding dataset
+
+### Outcome Variable
+
+We start the analysis by looking at the dimensions of the training-set. 
+
+```{r}
+dim(train)
+```
+
+We plot the outcome variable SalePrice. It seems that the outcome variable is quite closely, but not exactly normally distributed. 
+
+```{r, echo=FALSE}
+ggplot(data = train_y, aes(x=SalePrice)) + geom_histogram()
+```
+
+We verify this by measuring skewness and kurtosis.
+
+```{r}
+print(paste("Skewness:", skewness(train_y$SalePrice)))
+print(paste("Kurtosis:", kurtosis(train_y$SalePrice)))
+```
+
+### Predictors
+
+Beforehand we estimated that important features that could have a significant effect on SalePrice could be Neighborhood, OverallQual, GrLivArea, GarageCars, BsmtSF and YearBuilt. We visualize all the relationships between these variables and SalePrice.
+
+The above gound living area shows almost a linear relationship with salesprice. This definitely is an important feature. From the graph we can also see that with very large above ground living area there seems to be some outliers that should taken into closer inspection
+
+```{r, echo=FALSE}
+ggplot(data=train, aes(x=GrLivArea, y=SalePrice)) + geom_point()
+```
+
+Year built and seems to also have a slight linear relationship with sale's price. 
+
+```{r, echo=FALSE}
+ggplot(data=train, aes(x=YearBuilt, y=SalePrice)) + geom_point()
+```
+
+Total basement square feet has a very similar relatinship than above ground living area, which makes sense as basement size should go quite well hand in hand with above ground living area size.
+
+```{r, echo=FALSE}
+ggplot(data=train, aes(x=TotalBsmtSF, y=SalePrice)) + geom_point()
+```
+
+The neighborhood seems to have some effect to price, but the effect is smaller than we would expect.
+
+```{r, echo=FALSE}
+ggplot(data=train, aes(x=Neighborhood, y=SalePrice)) + geom_boxplot()
+```
+
+The overall quality has also very clear relationship with sales price. It is tho unknown how overall quality is calculated.
+
+```{r, echo=FALSE}
+ggplot(data=train, aes(x=OverallQual, y=SalePrice)) + geom_boxplot()
+```
+
+Garage cars seem to affect the sale's price, but odly having four car spaces in carage the apartment sale prices are smaller than with three spaces.
+
+```{r, echo=FALSE}
+ggplot(data=train, aes(x=GarageCars, y=SalePrice)) + geom_boxplot()
+```
+
+```{r}
+```
+
+## Visualizing dataset
+
+```{r}
+# classes <- lapply(features, class)
+
+# factor_columns <- names(classes[classes == "factor"])
+# integer_columns <- names(classes[classes == "integer"])
+```
+
+### Factorial data
+
+```{r}
+# melt_features_factors <- melt(features[factor_columns], id.vars= NULL, factorsAsStrings=TRUE, na.rm = TRUE)
+```
+
+```{r}
+# ggplot(data=melt_features_factors, aes(x = value)) + stat_count() + facet_wrap(~variable, scales = "free")
+```
+
+### Integer data
+
+```{r}
+# melt_features_integers <- melt(features[integer_columns], factorsAsStrings=TRUE, na.rm = TRUE)
+```
+
+```{r}
+# ggplot(data=melt_features_integers, aes(x = value)) + stat_density() + facet_wrap(~variable, scales = "free", , ncol = 6)
+```
+
+```{r}
+# ggplot(data=melt_features_integers, aes(x = variable, y = value)) + stat_boxplot() + facet_wrap(~variable, scales = "free")
+```
+
+
+# Feature Engineering
+
+
+
+```{r}
+
+# features <- features %>%
+#   mutate(
+#     TotalSF = TotalBsmtSF + X1stFlrSF + X2ndFlrSF,
+#     TotalBath = BsmtFullBath + BsmtHalfBath + FullBath + HalfBath,
+#     PorchSF = WoodDeckSF + OpenPorchSF + EnclosedPorch + X3SsnPorch + ScreenPorch,
+#     YrBuiltOrRemod = pmax(YearBuilt, YearRemodAdd),
+#     HasPool = PoolArea > 0,
+#     HasFireplace = Fireplaces > 0,
+#     HasGarage = !is.na(GarageType),
+#     HasBasement = TotalBsmtSF > 0,
+#     Has2ndFloor = X2ndFlrSF > 0 
+#   )
+
+```
+## Cleaning dataset
+
+### NA-columns
+
+We start by looking at the percentage of the NA-values in each columns.
+
+```{r}
+features %>% 
+  summarize_all(funs(sum(is.na(.)) / length(.))) %>% 
+  gather() %>% 
+  arrange(-value) %>% 
+  head(35)
+```
+
+There seems to be pretty much NA values in some of the columns. When we look at description of the data it infact shows that for many columns NA does not mean that the data is actually missing, but instead that the feature does not exist.
+
+Columns where NA-values mean that the feature does not exist:
+
+Alley, Bsmt..., FireplaceQu, Garage..., PoolQC  Fence, MiscFeatures
+
+In these cases it might be best to just change the NA-value for something else i.e. no, so that the information will not disapear. 
+
+!PoolArea
+
+Other columns containing NA-values: 
+
+LotFrontage, MasVnrType, MasVnrArea, MSZoning, Utilities, BsmtFullBath, BsmtHalfBath, Functional, Exterior1st, Exterior2nd, BsmtFinSF1, BsmtFinSF2, BsmtUnfSF, TotalBsmtSF , Electrical, KitchenQual, GarageCars, GarageArea, SaleType
+
+### Removing Unusable columns
+
+Removing unusable columns
+
+```{r}
+# train <- select(train, -Id, -PoolQC, -Fence, -MiscFeature, -Alley)
+# 
+# test <- select(test, -Id, -PoolQC, -Fence, -MiscFeature, -Alley)
+# 
 
 ```
 
-Data imputation
+### Imputation
 
-Get classes for each column
+Function for mode, used for factor column data imputation
+
+```{r}
+mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+```
+
+###€ LotFrontage and MSZoning
+
+For LotFrontage and MSZoning we are going to use a special imputation technique. For both of the columns we will group the columns by another column and replace the na-valeus based on the mode of that grouping.
+
+In LotFrontage column we are going to use Neighborhood column, as we would think that in the same neigborhood there would be similar distances from the property to the street.
+
+```{r}
+features$LotFrontage <- with(features, ave(LotFrontage, Neighborhood, FUN = function(i) replace(i, is.na(i), median(i, na.rm=TRUE))))
+```
+
+With MSZoning case we will do the imputation based on MSSubClass-column. As we would believe that the type of dwelling and the general zoning classification would be related. 
+
+```{r}
+features$MSZoning <- with(features, ave(MSZoning, MSSubClass, FUN = function(i) replace(i, is.na(i), mode(i))))
+```
+
+###€ Missing features
+
+With the columns where NA-values meant that the feature was missing we will replace the NA-values with a new factor level "No".
+
+```{r}
+classes <- lapply(features, class)
+factor_columns <- names(classes[classes == "factor"])
+
+impute_no <- function(column) {
+  levels(column) <- c(levels(column),"No")
+  column[is.na(column)] <- "No"
+  column
+}
+
+missing_features <- grep("^Gar|Bsmt|Alley|Fireplace|Pool|Fence|Misc", factor_columns, value=TRUE)
+
+features[missing_features] <- lapply(features[missing_features], impute_no)
+
+
+# Alley, Bsmt..., FireplaceQu, Garage..., PoolQC  Fence, MiscFeatures
+```
+
+
+###€ Mode and Median imputation
+
+For the rest of the columns with NA-values we will replace the missing values with mode or meadian depending if the column is of factor or numerical type.
 
 ```{r}
 classes <- lapply(features, class)
 ```
 
-In factor columns, replace the NA-values with the most frequent value 
+In factor columns, replace the NA-values with the mode.
 
 ```{r}
 factor_columns <- names(classes[classes == "factor"])
@@ -241,16 +345,15 @@ impute_integer_column <- function(column) {
 }
 
 features[integer_columns] <- lapply(features[integer_columns], impute_integer_column)
-
 ```
 
-Dummy variables
+### Dummy variables
+
+For computational reasons we will create dummy variables (one hot encode) for the factor variables.
 
 ```{r}
-
 dummies <- dummyVars(~., data = features)
 features <- data.frame(predict(dummies, newdata = features))
-
 ```
 
 ## Feature Selection
@@ -259,6 +362,7 @@ Remove features with zero variance
 
 ```{r}
 near_zero_var_columns <- nearZeroVar(features, freqCut = 99, uniqueCut = 1)
+names(features)[near_zero_var_columns]
 features <- select(features, -near_zero_var_columns)
 ```
 
@@ -267,7 +371,7 @@ Remove highly correlated features
 ```{r}
 correlationMatrix <- cor(features)
 highlyCorrelated <- findCorrelation(correlationMatrix, cutoff=.85)
-highlyCorrelated
+names(features)[highlyCorrelated]
 
 features <- select(features, -highlyCorrelated)
 ```
@@ -284,6 +388,8 @@ train <- cbind(train_x, train_y)
 
 ### Baseline
 
+As the baseline prediction we will use the mean sale price.
+
 ```{r}
 baseline <- mean(train_y$SalePrice)
 pred <- rep(baseline, length(ids))
@@ -295,33 +401,32 @@ Write submission file
 submission_data <- data.frame(Id = ids, SalePrice = pred)
 write.csv(submission_data, file="data/submission_baseline.csv", row.names=FALSE)
 ```
-# Models to try
 
 ### Model Selection
 
 Train model
 
 ```{r}
-# library(parallel)
-# library(doParallel)
-# 
-# cluster <- makeCluster(detectCores() - 1) # convention to leave 1 core for OS
-# registerDoParallel(cluster)
-# 
-# control <- trainControl(method="repeatedcv", number=5, allowParallel = TRUE)
-# 
-# model_linear <- train(SalePrice ~ ., data=train, method="lm", trControl=control)
-# model_ridge <- train(SalePrice ~ ., data=train, method="ridge", trControl=control)
-# model_lasso <- train(SalePrice ~ ., data=train, method="lasso", trControl=control)
-# model_elastic <- train(SalePrice ~ ., data=train, method="enet", trControl=control)
-# 
-# saveRDS(model_linear, "model_linear.rds")
-# saveRDS(model_ridge, "model_ridge.rds")
-# saveRDS(model_lasso, "model_lasso.rds")
-# saveRDS(model_elastic, "model_elastic.rds")
-# 
-# stopCluster(cluster)
-# registerDoSEQ()
+library(parallel)
+library(doParallel)
+
+cluster <- makeCluster(detectCores() - 1) # convention to leave 1 core for OS
+registerDoParallel(cluster)
+
+control <- trainControl(method="repeatedcv", number=5, allowParallel = TRUE)
+
+model_linear <- train(SalePrice ~ ., data=train, method="lm", trControl=control)
+model_ridge <- train(SalePrice ~ ., data=train, method="ridge", trControl=control)
+model_lasso <- train(SalePrice ~ ., data=train, method="lasso", trControl=control)
+model_elastic <- train(SalePrice ~ ., data=train, method="enet", trControl=control)
+
+saveRDS(model_linear, "model_linear.rds")
+saveRDS(model_ridge, "model_ridge.rds")
+saveRDS(model_lasso, "model_lasso.rds")
+saveRDS(model_elastic, "model_elastic.rds")
+
+stopCluster(cluster)
+registerDoSEQ()
 ```
 
 Compare models
@@ -363,8 +468,8 @@ write.csv(submission_data, file="data/submission_enet.csv", row.names=FALSE)
 
 ## Conclusion
 
-Final competition score with ENET: 0.14842
-Position: 3056
+Final competition score with ENET: 0.14630
+Position: 2913/5037
 
 
 
