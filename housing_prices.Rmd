@@ -15,18 +15,27 @@ In this project the task was to predict the sell price of a house from the house
 Approach:
 
 1. Loading dataset
-2. Exploring dataset structure and features
-3. Removing columns used for book keeping and with a lot of na-values
-4. Converting factor columns to be of type factors
-5. Data imputation (numeric -> median, factor -> most common)
-6. Creating dummy variables
-7. Feature Selection (Removing near zero variance predictors and highly correlated features)
-8. Creating Baseline prediction with average sell price
-9. Training and predicting with linear regression
+2. Correcting Variable Types
+3. Understanding Dataset
+    1. Outcome Variable
+	  2. Predictors
+4. Cleaning dataset 
+    1. Removing Book Keeping Columns
+    2. Imputation
+    3. Outcome Variable Skewness
+    4. Creating Dummy Variables
+5. Feature Selection 
+    1. Near Zero Variance Columns
+    2. Highly Correlated Features
+6. Prediction
+    1. Creating a Baseline
+    2. Model comparasion
+    3. Creating a submission file
+7. Conclusion
 
 Packages Used:
 
-dplyr, caret
+dplyr, caret, ggplot2, reshape2, moments, tidyr, patchwork
 
 Predictors:
 
@@ -45,14 +54,13 @@ With 79 explanatory variables describing (almost) every aspect of residential ho
 (From Kaggle challenge)
 
 
-## Loading Data
+## Loading Dataset
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 library(dplyr)
 library(caret)
 library(ggplot2)
 library(reshape2)
-library(corrplot)
 library(moments)
 library(tidyr)
 library(patchwork)
@@ -64,7 +72,7 @@ train <- read.csv("data/train.csv")
 test <- read.csv("data/test.csv")
 ```
 
-In the training dataset we separate the predictors from the outcome. We then create a variable features from the predictors in training and testing set so that we don't have to repeat data manipulation separately for training and testing set. We also separate the id-column from the testing set, as it is needed for the submission file.
+In the training dataset we separate the predictors from the outcome. We then create a new variable "features" from the predictors in the training and in the testing set so that we don't have to repeat data manipulation separately for the training and the testing set. We also separate the id-column from the testing set, as it is needed for the submission file.
 
 
 ```{r}
@@ -74,7 +82,7 @@ features <- rbind(train_x, test)
 ids <- test$Id
 ```
 
-## Correcting Variable Type
+## Correcting Variable Types
 
 From reading the data description file and comparing it to the dataset column types, we noticed that there are several columns that are of numerical type that should be factors. We convert these columns to be of correct type.
 
@@ -91,12 +99,13 @@ features$KitchenAbvGr <- as.factor(features$KitchenAbvGr)
 features$TotRmsAbvGrd <- as.factor(features$TotRmsAbvGrd)
 features$GarageCars <- as.factor(features$GarageCars)
 
+# For visualizing purposes
 train$OverallQual <- as.factor(train$OverallQual)
 train$GarageCars <- as.factor(train$GarageCars)
 ```
 
 
-## Understanding dataset
+## Understanding Dataset
 
 ### Outcome Variable
 
@@ -123,13 +132,13 @@ print(paste("Kurtosis:", kurtosis(train_y$SalePrice)))
 
 Beforehand we estimated that important features that could have a significant effect on SalePrice could be Neighborhood, OverallQual, GrLivArea, GarageCars, BsmtSF and YearBuilt. We visualize all the relationships between these variables and SalePrice.
 
-The above gound living area shows almost a linear relationship with salesprice. This definitely is an important feature. From the graph we can also see that with very large above ground living area there seems to be some outliers that should taken into closer inspection
+The above gound living area shows almost a linear relationship with salesprice. This definitely is an important feature. From the graph we can also see that with very large above ground living area there seems to be some outliers that should be taken into closer inspection
 
 ```{r, echo=FALSE}
 ggplot(data=train, aes(x=GrLivArea, y=SalePrice)) + geom_point()
 ```
 
-Year built and seems to also have a slight linear relationship with sale's price. 
+Year built seems to also have a slight linear relationship with sale price. 
 
 ```{r, echo=FALSE}
 ggplot(data=train, aes(x=YearBuilt, y=SalePrice)) + geom_point()
@@ -147,13 +156,13 @@ The neighborhood seems to have some effect to price, but the effect is smaller t
 ggplot(data=train, aes(x=Neighborhood, y=SalePrice)) + geom_boxplot()
 ```
 
-The overall quality has also very clear relationship with sales price. It is tho unknown how overall quality is calculated.
+The overall quality has also very clear relationship with sales price. It is though unknown how overall quality is calculated.
 
 ```{r, echo=FALSE}
 ggplot(data=train, aes(x=OverallQual, y=SalePrice)) + geom_boxplot()
 ```
 
-Garage cars seem to affect the sale's price, but odly having four car spaces in carage the apartment sale prices are smaller than with three spaces.
+Garage cars seem to affect the sale price, but odly having four car spaces in carage the apartment sale prices are smaller than with three spaces.
 
 ```{r, echo=FALSE}
 ggplot(data=train, aes(x=GarageCars, y=SalePrice)) + geom_boxplot()
@@ -161,7 +170,16 @@ ggplot(data=train, aes(x=GarageCars, y=SalePrice)) + geom_boxplot()
 
 ## Cleaning dataset
 
-### NA-columns
+### Removing Book Keeping Columns
+
+Removing Id column that is used for book keeping
+
+```{r}
+train <- select(train, -Id)
+test <- select(test, -Id)
+```
+
+### Imputation
 
 We start by looking at the percentage of the NA-values in each columns.
 
@@ -179,22 +197,11 @@ Columns where NA-values mean that the feature does not exist:
 
 Alley, Bsmt..., FireplaceQu, Garage..., PoolQC  Fence, MiscFeatures
 
-In these cases it might be best to just change the NA-value for something else i.e. no, so that the information will not disapear. 
+In these cases it might be best to just change the NA-value for something else i.e. a now factor level "No", so that the information will not disapear. 
 
 Other columns containing NA-values: 
 
 LotFrontage, MasVnrType, MasVnrArea, MSZoning, Utilities, BsmtFullBath, BsmtHalfBath, Functional, Exterior1st, Exterior2nd, BsmtFinSF1, BsmtFinSF2, BsmtUnfSF, TotalBsmtSF , Electrical, KitchenQual, GarageCars, GarageArea, SaleType
-
-### Removing Unusable columns
-
-Removing Id column that is used for book keeping
-
-```{r}
-train <- select(train, -Id)
-test <- select(test, -Id)
-```
-
-### Imputation
 
 Function for mode, used for factor column data imputation
 
@@ -207,7 +214,7 @@ mode <- function(x) {
 
 #### LotFrontage and MSZoning
 
-For LotFrontage and MSZoning we are going to use a special imputation technique. For both of the columns we will group the columns by another column and replace the na-valeus based on the mode of that grouping.
+For LotFrontage and MSZoning we are going to use a special imputation technique. For both of the columns we will group the columns by another column and replace the NA-values based on the mode of that grouping.
 
 In LotFrontage column we are going to use Neighborhood column, as we would think that in the same neigborhood there would be similar distances from the property to the street.
 
@@ -277,7 +284,7 @@ impute_integer_column <- function(column) {
 
 features[integer_columns] <- lapply(features[integer_columns], impute_integer_column)
 ```
-### Target Variable
+### Outcome Variable Skewness
 
 ```{r, echo=FALSE}
 g1 <- ggplot(train_y, aes(x=SalePrice)) + 
@@ -331,9 +338,9 @@ We verify that the output variable is now aproximately normally distributed.
 g3 | g1 / g2 
 ```
 
-### Dummy variables
+### Creating Dummy Variables
 
-For computational reasons we will create dummy variables (one hot encode) for the factor variables.
+For computational reasons we will create dummy variables (one hot encoding) for the factor variables.
 
 ```{r}
 dummies <- dummyVars(~., data = features)
@@ -344,7 +351,9 @@ features <- data.frame(predict(dummies, newdata = features))
 
 We will not go too deeply on feature selection in this markdown-file. The feature selection methods used were removing zero variance and very near to zero variance predictors and removing features that were highly correlated with each other.
 
-Remove features with zero variance
+### Near Zero Variance Columns
+
+Remove features with zero variance or very close to it
 
 ```{r}
 near_zero_var_columns <- nearZeroVar(features, freqCut = 99, uniqueCut = 1)
@@ -352,7 +361,9 @@ names(features)[near_zero_var_columns]
 features <- select(features, -near_zero_var_columns)
 ```
 
-Remove highly correlated features
+### Highly Correlated Features
+
+Remove features that are very highly correlated with each other
 
 ```{r}
 correlationMatrix <- cor(features)
@@ -373,25 +384,26 @@ test_x <- features[(nrow(train_y)+1):nrow(features),]
 train <- cbind(train_x, train_y)
 ```
 
-### Baseline
+### Creating a Baseline
 
 As the baseline prediction we will use the mean sale price.
 
 ```{r}
 baseline <- mean(train_y$SalePrice)
+baseline
 pred <- rep(baseline, length(ids))
-```
-
-Write submission file
-
-```{r}
-submission_data <- data.frame(Id = ids, SalePrice = pred)
-write.csv(submission_data, file="data/submission_baseline.csv", row.names=FALSE)
 ```
 
 ### Model Selection
 
-Train model
+We will train all together four models the used models are the following:
+
+- Linear 
+- Ridgre regression
+- Lasso
+- Elasticnet
+
+We use parallel processing in the training process to make the training faster.
 
 ```{r}
 # library(parallel)
@@ -428,34 +440,27 @@ results <- resamples(list(linear=model_linear, ridge=model_ridge, lasso=model_la
 summary(results)
 ```
 
-Make Precitions
+Make Precitions. As we did a log transform for the outcome variable we need to transform the outcome variables back to originals by taking the exponent. 
 
 ```{r}
-pred2 <- exp(predict(model_linear, test_x))
-pred3 <- exp(predict(model_ridge, test_x))
-pred4 <- exp(predict(model_lasso, test_x))
-pred5 <- exp(predict(model_elastic, test_x))
+pred <- exp(predict(model_lasso, test_x))
 ```
 
 Write submission file
 
 ```{r}
-submission_data <- data.frame(Id = ids, SalePrice = pred2)
-write.csv(submission_data, file="data/submission_linear.csv", row.names=FALSE)
-
-submission_data <- data.frame(Id = ids, SalePrice = pred3)
-write.csv(submission_data, file="data/submission_ridge.csv", row.names=FALSE)
-
-submission_data <- data.frame(Id = ids, SalePrice = pred4)
+submission_data <- data.frame(Id = ids, SalePrice = pred)
 write.csv(submission_data, file="data/submission_lasso.csv", row.names=FALSE)
-
-submission_data <- data.frame(Id = ids, SalePrice = pred5)
-write.csv(submission_data, file="data/submission_enet.csv", row.names=FALSE)
 ```
 
 ## Conclusion
 
-Final competition score with ENET: 0.13393
+In the project I learned a lot about the main idea of the machine learning process. Make the most simple model possible that gives some results and after that try out different things and see if the results improve.
+
+In the project I was able to test different kind of imputation methods that were unfamiliar to me beforehand. I also learned a lot about exploratory analysis, of what are important things to explore before doing an analysis. 
+
+Final competition score with Lasso: 0.13393
+
 Position: 1881/5037
 
 
